@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  web:
+    build: web/.
+    ports:
+      - 8080:8000
+    depends_on:
+      - db
+    networks:
+      - webnet
+    environment:
+      DATABASE_URL: postgresql://nich:nich123@db/distributeddb
+
+  loader:
+    build: loader/.
+    restart: on-failure
+    depends_on:
+      - rabbit
+      - web
+    networks:
+      - webnet
+    environment:
+      RABBITMQ_URL: amqp://nich:nich123@rabbit:5672/%2F
+      WEB_BASE_URL: http://web:8000
+
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - 15432:5432
+    environment:
+      POSTGRES_PASSWORD: nich
+      POSTGRES_USER: nich123
+      POSTGRES_DB: distributeddb
+    volumes:
+      - "dbdata:/var/lib/postgresql/data"
+    networks:
+      - webnet
+
+  rabbit:
+    image: rabbitmq:management
+    hostname: rabbit
+    environment:
+      RABBITMQ_DEFAULT_USER: nich
+      RABBITMQ_DEFAULT_PASS: nich123
+    ports:
+      - 15672:15672
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    networks:
+      - webnet
+
+volumes:
+  dbdata:
+
+networks:
+  rabbitnet:
+    driver: bridge
+
+  webnet:
+    driver: bridge
